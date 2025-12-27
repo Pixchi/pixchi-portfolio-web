@@ -6,15 +6,17 @@ function getAdmin() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const saJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (!projectId || !saJson) {
-    throw new Error("Faltan FIREBASE_PROJECT_ID o FIREBASE_SERVICE_ACCOUNT_JSON en Netlify env.");
-  }
+  if (!projectId) throw new Error("Missing FIREBASE_PROJECT_ID");
+  if (!saJson) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON");
 
   const serviceAccount = JSON.parse(saJson);
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+  }
 
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    projectId
+    projectId,
   });
 
   return admin;
@@ -22,46 +24,52 @@ function getAdmin() {
 
 export async function handler(event) {
   try {
-    const matricula = event.queryStringParameters?.matricula;
-    if (!matricula) return { statusCode: 400, body: "Falta matricula" };
+    const uidParam = event.queryStringParameters?.uid;
+    const matriculaParam = event.queryStringParameters?.matricula;
+
+    if (!uidParam && !matriculaParam) {
+      return { statusCode: 400, body: "Falta uid o matricula" };
+    }
 
     const a = getAdmin();
     const db = a.firestore();
 
-    // 1) user por matricula
-    const uSnap = await db.collection("users").where("matricula", "==", matricula).limit(1).get();
-    if (uSnap.empty) return { statusCode: 404, body: JSON.stringify({ error: "No existe usuario" }) };
+    let uid = uidParam;
 
-    const uDoc = uSnap.docs[0];
-    const user = { docId: uDoc.id, ...uDoc.data() };
+    // Si llega matrícula, buscamos el uid
+    if (!uid && matriculaParam) {
+      const userSnap = await db
+        .collection("users")
+        .where("matricula", "==", matriculaParam)
+        .limit(1)
+        .get();
 
-    const uid = user.uid; // tu campo real (dentro del doc)
-    if (!uid) return { statusCode: 404, body: JSON.stringify({ error: "Usuario sin uid" }) };
+      if (userSnap.empty) {
+        return { statusCode: 404, body: "Usuario no encontrado por matricula" };
+      }
 
-    // 2) layout por uid
-    const layoutRef = db.collection("portfolioLayouts").doc(uid);
-    const layoutSnap = await layoutRef.get();
+      const userData = userSnap.docs[0].data();
+      uid = userData.uid || userSnap.docs[0].id;
+    }
 
-    const layout = layoutSnap.exists ? layoutSnap.data() : null;
-    const selected = (layout?.selectedPostDocIds || []);
-
-    // 3) posts del usuario (por matricula) y filtrar por selectedDocIds
-    const pSnap = await db.collection("posts")
-      .where("matricula", "==", matricula)
-      .orderBy("createdAt", "desc")
-      .get();
-
-    const allPosts = pSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    const posts = selected.length
-      ? allPosts.filter(p => selected.includes(p.docId))
-      : []; // si no seleccionó nada, no mostramos
+    const layoutSnap = await db.collection("portfolioLayouts").doc(uid).get();
 
     return {
       statusCode: 200,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ user, layout, posts })
+      headers: {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+      },
+      body: JSON.stringify({
+        uid,
+        layout: layoutSnap.exists ? layoutSnap.data() : null,
+      }),
     };
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: String(e) }) };
+    return {
+      statusCode: 500,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ error: String(e) }),
+    };
   }
 }
