@@ -1,25 +1,32 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 export default function About() {
   return (
-    <div className="canvas">
-      <div className="container">
-        <h1 className="title">Acerca de Pixchi</h1>
-        <p className="muted">
-          Pixchi es una plataforma para que estudiantes puedan publicar y presentar sus trabajos (imagen, video, 3D)
-          y generar un portafolio digital listo para reclutadores.
+    <main className="page">
+      <section className="card">
+        <h2 className="h2">Acerca de Pixchi</h2>
+        <p className="p">
+          Pixchi es un ecosistema para estudiantes: publicaciones + curación + portafolio público.
+          El objetivo es que cada alumno tenga un perfil “vitrina” para reclutadores.
         </p>
 
-        <div className="cardBox">
-          <h2 className="h2">Nuestra misión</h2>
-          <p className="muted">
-            Facilitar que cada alumno tenga presencia profesional y pueda compartir su talento con un link y un QR en su CV.
-          </p>
-
-          <h2 className="h2" style={{ marginTop: 18 }}>Contacto</h2>
-          <p className="muted">TESCHI • Animación Digital y Efectos Visuales</p>
+        <div className="grid2">
+          <div className="miniCard">
+            <div className="miniTitle">Portafolio público</div>
+            <div className="miniText">Un link accesible para cualquier persona, sin iniciar sesión.</div>
+          </div>
+          <div className="miniCard">
+            <div className="miniTitle">Curación</div>
+            <div className="miniText">El alumno decide qué trabajos mostrar (lo mejor).</div>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <Link to="/login" className="btn btnPrimary">Entrar</Link>
+          <Link to="/" className="btn btnGhost">Volver</Link>
+        </div>
+      </section>
+    </main>
   );
 }
